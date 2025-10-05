@@ -10,24 +10,37 @@ export default function Moderator() {
   const [speaking, setSpeaking] = useState(null)
   const [durationSec, setDurationSec] = useState(120)
   const [joined, setJoined] = useState(false)
+  const [connected, setConnected] = useState(false)
   const socketRef = useRef(null)
   const { show, Toast } = useToast()
 
-  useEffect(() => { const s = createSocket(); socketRef.current = s; s.connect(); return () => s.disconnect() }, [])
+  useEffect(() => {
+    const s = getSocket()
+    socketRef.current = s
+    const onC = () => setConnected(true)
+    const onD = () => setConnected(false)
+    if (!s.connected) s.connect()
+    s.on('connect', onC)
+    s.on('disconnect', onD)
+    return () => { s.off('connect', onC); s.off('disconnect', onD) }
+  }, [])
 
   const joinAsMod = () => {
-    socketRef.current.emit('join_meeting', { meetingId, name: 'MOD', role: 'moderator', pin }, (ack) => {
+    const s = socketRef.current
+    if (!s?.connected) { alert('Connessione al server in corso, riprova tra un attimo…'); return }
+    s.emit('join_meeting', { meetingId, name: 'MOD', role: 'moderator', pin }, (ack) => {
       if (!ack?.ok) return alert(ack?.error || 'PIN errato')
       setJoined(true); setQueue(ack.state.queue); setSpeaking(ack.state.speaking)
-      socketRef.current.on('queue_updated', setQueue)
-      socketRef.current.on('state_updated', (st)=>{ setQueue(st.queue); setSpeaking(st.speaking) })
+      s.on('queue_updated', setQueue)
+      s.on('state_updated', (st)=>{ setQueue(st.queue); setSpeaking(st.speaking) })
       show('Sei entrato come moderatore', 'success')
     })
   }
+
   const start = (id) => socketRef.current.emit('start_speaking', { id, durationSec }, () => show('Intervento avviato', 'success'))
   const stop  = () => socketRef.current.emit('stop_speaking', () => show('Intervento fermato', 'info'))
   const lock  = async (locked) => {
-    await fetch(`http://localhost:3000/api/meetings/${meetingId}/lock`, {
+    await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'}/api/meetings/${meetingId}/lock`, {
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ locked })
     })
     show(locked ? 'Coda bloccata' : 'Coda sbloccata', 'info')
@@ -52,7 +65,14 @@ export default function Moderator() {
               <div className="label mb-1">PIN moderatore</div>
               <input className="input" value={pin} onChange={e=>setPin(e.target.value)} />
             </div>
-            <button className="btn-primary" onClick={joinAsMod}>Entra</button>
+            <button
+              className="btn-primary"
+              onClick={joinAsMod}
+              disabled={!connected || !pin}
+              title={!connected ? 'Connessione in corso…' : (!pin ? 'Inserisci PIN' : 'Entra')}
+            >
+              Entra
+            </button>
           </div>
         ) : (
           <>
