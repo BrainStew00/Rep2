@@ -12,7 +12,7 @@ function genId(len = 8) {
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-  'https://whimsical-youtiao-6933ec.netlify.app', // 👈 il TUO dominio Netlify (esatto, senza slash finale)
+  'https://queue-talk.netlify.app', // 👈 il TUO dominio Netlify (esatto, senza slash finale)
 ];
 
 const app = express();
