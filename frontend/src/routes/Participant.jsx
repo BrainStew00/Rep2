@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { createSocket } from '../lib/socket'
+import { getSocket } from '../lib/socket'
 import { useToast } from '../ui/Toast'
 
 export default function Participant() {
@@ -18,7 +18,12 @@ export default function Participant() {
   const socketRef = useRef(null)
 
   useEffect(() => {
-    const s = createSocket(); socketRef.current = s; s.connect()
+    const s = getSocket()
+    socketRef.current = s
+    if (!s.connected) s.connect()
+
+    const handleState = (st) => { setQueue(st.queue); setSpeaking(st.speaking) }
+
     s.emit('join_meeting', { meetingId, name, role: 'attendee' }, (ack) => {
       if (!ack?.ok) { setError(ack?.error || 'Errore di join'); return }
       setJoined(true); setQueue(ack.state.queue); setSpeaking(ack.state.speaking)
@@ -27,8 +32,12 @@ export default function Participant() {
       }
     })
     s.on('queue_updated', setQueue)
-    s.on('state_updated', (st) => { setQueue(st.queue); setSpeaking(st.speaking) })
-    return () => s.disconnect()
+    s.on('state_updated', handleState)
+
+    return () => {
+      s.off('queue_updated', setQueue)
+      s.off('state_updated', handleState)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meetingId])
 

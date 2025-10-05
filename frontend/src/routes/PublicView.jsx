@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { createSocket } from '../lib/socket'
+import { getSocket } from '../lib/socket'
 
 function Countdown({ speaking }){
   const [left, setLeft] = useState(0)
@@ -24,11 +24,16 @@ export default function PublicView(){
   const socketRef = useRef(null)
 
   useEffect(()=>{
-    const s = createSocket(); socketRef.current = s; s.connect()
+    const s = getSocket(); socketRef.current = s
+    if (!s.connected) s.connect()
+    const handleState = (st)=>{ setQueue(st.queue); setSpeaking(st.speaking) }
     s.emit('join_meeting', { meetingId, name: 'DISPLAY' }, () => {})
     s.on('queue_updated', setQueue)
-    s.on('state_updated', (st)=>{ setQueue(st.queue); setSpeaking(st.speaking) })
-    return () => s.disconnect()
+    s.on('state_updated', handleState)
+    return () => {
+      s.off('queue_updated', setQueue)
+      s.off('state_updated', handleState)
+    }
   },[meetingId])
 
   const total = speaking ? speaking.durationSec : 0
@@ -47,7 +52,6 @@ export default function PublicView(){
           <Countdown speaking={speaking} />
         </header>
 
-        {/* Progress bar */}
         <div className="w-full h-2 bg-white/15 rounded">
           <div className="h-2 bg-emerald-500 rounded" style={{ width: `${pct}%` }} />
         </div>

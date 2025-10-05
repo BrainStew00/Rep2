@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { createSocket } from '../lib/socket'
+import { getSocket } from '../lib/socket'
 import { useToast } from '../ui/Toast'
 
 export default function Moderator() {
